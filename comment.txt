@@ -1,0 +1,1 @@
+The most important thing that I have to say is I discover we can only have one datapath, which makes our implementation easier but much more repetitive. This is saying that we just have to create every object in the datapath and figure out how we can refresh every frame. This is very similar to what we have for Lab7.

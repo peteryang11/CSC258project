@@ -75,11 +75,11 @@ module makeboxmove
 	wire [2:0] colour_in;
 
     // Instansiate datapath
-    datapath d0(.clock(CLOCK_50), .reset_n(resetn), .drawcounter(drawcounter), .ld_x(ld_x), .ld_y(ld_y), .color_in(colour_in), .updateenable(updateenable),.x(x), .y(y), .color_out(colour));
+    datapath d0(.clock(CLOCK_50), direction(KEY[2:0]), .reset_n(resetn), .drawcounter(drawcounter), .ld_x(ld_x), .ld_y(ld_y), .color_in(colour_in), .updateenable(updateenable),.x(x), .y(y), .color_out(colour));
 
     // Instansiate FSM control
     control c0(.clk(CLOCK_50), .reset_n(resetn), .drawcounter(drawcounter), .ld_x(ld_x), .ld_y(ld_y), .plot(writeEn), .colour_in(colour_in),.updateenable(updateenable));
-    endmodule    
+endmodule    
 
 module control(input clk, input reset_n, output reg [5:0] drawcounter, output reg ld_x, output reg ld_y, output reg plot, output reg[2:0] colour_in, output reg updateenable);
 	reg drawenable, delayenable, framenable;
@@ -181,9 +181,13 @@ module control(input clk, input reset_n, output reg [5:0] drawcounter, output re
 	begin
 	    if(!reset_n)
 	    	drawcounter <= 6'd0;
-	    else if (drawenable == 1'b1)
-	    	drawcounter <= drawcounter + 1'b1;
-	    // may need to reset?
+	    else begin
+	    	if (drawenable == 1'b1)
+	    		drawcounter <= drawcounter + 1'b1;
+	    	else
+	    		drawcounter <= 6'b0
+	    	
+	    end
 	end
 
 	// Delay counter is to enable the framcounter.
@@ -237,6 +241,7 @@ module datapath(
 	input [5:0] drawcounter, 
 	input ld_x, 
 	input ld_y, 
+	input [2:0] direction,
 	input[2:0] color_in, 
 	input updateenable, 
 	output reg [7:0] x, 
@@ -277,6 +282,21 @@ module datapath(
 	.update(updateenable), 
 	.x_out(x2),
 	.y_out(y2)
+	);
+
+    // We will test this after we have finish testing two moving auto-objects.
+    reg [7:0] xp;
+    reg [6:0] yp;
+	Player_object p(
+	.clk
+	.x(8'd79),
+	.y(7'd110),
+	.s(2'b01), // speed of a single move.
+	.d(direction), // 2'b11 and 2'b00 is stay, 2'b10 is move left, 2'b01 is move right. // 1'b1 is move forward
+	.resetn(reset_n),
+	.update(updateenable),
+	.x_out(xp),
+	.y_out(yp)
 	);
 
     assign color_out = color_in;
@@ -402,5 +422,44 @@ module Auto_object(
 			x_out <= x_out - s;
 		else
 			x_out <= x_out;
+	end
+endmodule
+
+module Player_object(
+	input clk
+	input [7:0] x,
+	input [6:0] y,
+	input [1:0] s, // speed of a single move.
+	input [2:0] d// 3'b001 is move right, 100 is left, when the middle one is 1 always move forward.
+	input resetn
+	input update
+	output x_out
+	output y_out);
+	
+	reg x_out;
+	reg y_out;
+
+	always @(posedge clk) 
+	begin
+		if (!resetn) begin
+			x_out <= x;
+			y_out <= y;
+		end
+		else if (update) begin
+			if(d[1] == 1'b1) 
+				y_out <= y_out + s;
+			if(d[2] == 1'b0 & d[0] == 1'b1)
+				x_out <= x_out + s;
+			else if(d[2] == 1'b1 & d[0] == 1'b0)
+				x_out <= x_out - s;	
+			else begin
+				x_out <= x_out;
+				y_out <= y_out;
+			end
+		end
+		else begin
+			x_out <= x_out;
+			y_out <= y_out;
+		end
 	end
 endmodule
